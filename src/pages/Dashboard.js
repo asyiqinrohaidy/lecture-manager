@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Card, CardContent, Stack,
-  TextField, IconButton
+  TextField, IconButton, Paper
 } from '@mui/material';
 import Navbar from '../components/Navbar';
 import Timer from '../components/Timer';
@@ -21,7 +21,6 @@ const Dashboard = () => {
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newSegments, setNewSegments] = useState([{ name: '', duration: 5 * 60 }]);
 
-  // Load default or custom template
   useEffect(() => {
     if (lectureType === 'custom') {
       setSegments(newSegments);
@@ -37,7 +36,6 @@ const Dashboard = () => {
     }
   }, [lectureType, customTemplates, newSegments]);
 
-  // Fetch custom templates from Firestore
   useEffect(() => {
     const fetchTemplates = async () => {
       const user = auth.currentUser;
@@ -50,7 +48,6 @@ const Dashboard = () => {
     fetchTemplates();
   }, []);
 
-  // Save new custom template
   const saveCustomTemplate = async () => {
     if (!newTemplateName.trim()) {
       alert('Please enter a template name');
@@ -67,33 +64,47 @@ const Dashboard = () => {
     setNewTemplateName('');
     setNewSegments([{ name: '', duration: 5 * 60 }]);
 
-    // Reload templates
     const q = query(collection(db, 'templates'), where('uid', '==', user.uid));
     const snap = await getDocs(q);
     setCustomTemplates(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   };
 
-  // Delete a custom template
   const deleteTemplate = async (templateId) => {
     await deleteDoc(doc(db, 'templates', templateId));
     setCustomTemplates(customTemplates.filter(t => t.id !== templateId));
   };
 
-  // Add a new segment to the custom template
   const addNewSegment = () => setNewSegments([...newSegments, { name: '', duration: 5 * 60 }]);
 
-  // Update segment fields
   const updateNewSegment = (index, field, value) => {
     const updated = [...newSegments];
     updated[index][field] = field === 'duration' ? parseInt(value) * 60 : value;
     setNewSegments(updated);
   };
 
-  // Remove a segment
   const removeNewSegment = (index) => {
     const updated = [...newSegments];
     updated.splice(index, 1);
     setNewSegments(updated);
+  };
+
+  const updateReminder = (segIndex, noteIndex, value) => {
+    const updated = [...segments];
+    updated[segIndex].reminderNotes[noteIndex] = value;
+    setSegments(updated);
+  };
+
+  const addReminder = (segIndex) => {
+    const updated = [...segments];
+    if (!updated[segIndex].reminderNotes) updated[segIndex].reminderNotes = [];
+    updated[segIndex].reminderNotes.push('');
+    setSegments(updated);
+  };
+
+  const deleteReminder = (segIndex, noteIndex) => {
+    const updated = [...segments];
+    updated[segIndex].reminderNotes.splice(noteIndex, 1);
+    setSegments(updated);
   };
 
   return (
@@ -108,7 +119,6 @@ const Dashboard = () => {
           Choose a lecture style or create a custom template:
         </Typography>
 
-        {/* Lecture type buttons */}
         <Stack direction="row" spacing={2} sx={{ mb: 4, flexWrap: 'wrap' }}>
           {Object.keys(lectureTemplates).map((type) => (
             <Button
@@ -142,7 +152,6 @@ const Dashboard = () => {
               onChange={(e) => setNewTemplateName(e.target.value)}
               sx={{ mb: 2 }}
             />
-
             {newSegments.map((seg, idx) => (
               <Stack key={idx} direction="row" spacing={2} sx={{ mb: 2 }}>
                 <TextField
@@ -163,7 +172,6 @@ const Dashboard = () => {
                 </IconButton>
               </Stack>
             ))}
-
             <Button startIcon={<AddIcon />} onClick={addNewSegment}>Add Segment</Button>
             <Button variant="contained" sx={{ ml: 2 }} onClick={saveCustomTemplate}>
               Save Template
@@ -171,7 +179,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Existing templates with delete option */}
+        {/* Manage templates */}
         {customTemplates.length > 0 && (
           <Card elevation={2} sx={{ maxWidth: 800, mx: 'auto', mb: 4, p: 2 }}>
             <Typography variant="h6" gutterBottom>🗑 Manage Custom Templates</Typography>
@@ -184,6 +192,38 @@ const Dashboard = () => {
           </Card>
         )}
 
+        {/* 📝 Segment Reminders */}
+        <Card elevation={3} sx={{ maxWidth: 800, mx: 'auto', mb: 4 }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2 }}>📌 Add Segment Reminders Here</Typography>
+            <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
+              Add helpful notes for each segment — e.g., key points to cover, questions, or examples.
+            </Typography>
+            {segments.map((seg, segIndex) => (
+              <Paper key={segIndex} elevation={1} sx={{ mb: 3, p: 2 }}>
+                <Typography variant="subtitle1" fontWeight="bold">{seg.name}</Typography>
+                {seg.reminderNotes?.map((note, noteIndex) => (
+                  <Box key={noteIndex} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <TextField
+                      size="small"
+                      value={note}
+                      onChange={(e) => updateReminder(segIndex, noteIndex, e.target.value)}
+                      fullWidth
+                      placeholder="Enter a reminder"
+                    />
+                    <IconButton onClick={() => deleteReminder(segIndex, noteIndex)} color="error">
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                ))}
+                <Button size="small" startIcon={<AddIcon />} onClick={() => addReminder(segIndex)}>
+                  Add Reminder
+                </Button>
+              </Paper>
+            ))}
+          </CardContent>
+        </Card>
+
         {/* Timer */}
         <Card elevation={3} sx={{ maxWidth: 600, mx: 'auto' }}>
           <CardContent>
@@ -191,7 +231,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Reports Button */}
+        {/* View Reports */}
         <Box sx={{ textAlign: 'center', mt: 4 }}>
           <Button
             variant="contained"
